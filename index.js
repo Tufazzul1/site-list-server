@@ -35,7 +35,22 @@ async function run() {
         app.get('/allSites', async (req, res) => {
             const allSites = await allSitesCollection.find().toArray();
             res.send(allSites);
-        })
+        });
+
+        app.get('/allSites/:id', async (req, res) => {
+            const siteId = req.params.id;
+            try {
+                const singleSite = await allSitesCollection.findOne({ _id: new ObjectId(siteId) });
+                if (singleSite) {
+                    res.send(singleSite);
+                } else {
+                    res.status(404).send({ message: 'Site not found' });
+                }
+            } catch (error) {
+                res.status(500).send({ message: 'Error fetching site', error });
+            }
+        });
+
 
         // finding website throw email 
         app.get('/personalSites', async (req, res) => {
@@ -45,14 +60,14 @@ async function run() {
             }
             const websites = await allSitesCollection.find(query).toArray();
             res.send(websites);
-        })
+        });
 
         // post the subscriber to the database
         app.post('/subscribe', async (req, res) => {
             const newSubscriber = req.body;
             const result = await allSubscriberCollection.insertOne(newSubscriber);
             res.send(result);
-        })
+        });
 
         app.get('/latest-sites', async (req, res) => {
             try {
@@ -93,7 +108,7 @@ async function run() {
             }
             const favourite = await favouriteCollection.find(query).toArray();
             res.send(favourite);
-        })
+        });
 
         app.delete('/deleteFavourite/:id', async (req, res) => {
             const id = req.params.id;
@@ -107,26 +122,40 @@ async function run() {
             const newWebsite = req.body;
             const result = await allSitesCollection.insertOne(newWebsite);
             res.send(result);
-        })
+        });
 
-        app.put('/submitedWebsite/:id', async (req, res) => {
-            const id = req.params.id;
-            const filter = { _id: new ObjectId(id) }
-            const options = { upsert: true };
-            const updateSite = req.body
-            const book = {
+        app.put('/updateSite/:id', async (req, res) => {
+            const id = req.params.id; 
+            const filter = { _id: new ObjectId(id) }; 
+            const updateData = req.body;  
+
+            const updatedDocument = {
                 $set: {
-                    name: updateSite.name,
-                    link: updateSite.link,
-                    category: updateSite.category,
-                    subCategory: updateSite.subCategory,
-                    description: updateSite.description,
+                    name: updateData.name,
+                    link: updateData.link,
+                    category: updateData.category,
+                    subCategory: updateData.subCategory,
+                    image: updateData.image,
+                    logo: updateData.logo,
+                    description: updateData.description,
                 }
-            }
-            const result = await allSitesCollection.updateOne(filter, book, options)
-            res.send(result)
+            };
 
-        })
+            try {
+                const options = { upsert: false }; 
+                const result = await allSitesCollection.updateOne(filter, updatedDocument, options); 
+
+                if (result.modifiedCount === 1) {
+                    res.status(200).send({ message: 'Website updated successfully', result });
+                } else {
+                    res.status(404).send({ message: 'Website not found or no changes made' });
+                }
+            } catch (error) {
+                console.error('Error updating site:', error);
+                res.status(500).send({ message: 'Error updating site', error });
+            }
+        });
+
 
         app.delete('/deleteSite/:id', async (req, res) => {
             const id = req.params.id;
@@ -134,7 +163,6 @@ async function run() {
             const result = await allSitesCollection.deleteOne(query);
             res.send(result);
         });
-
 
 
         // Send a ping to confirm a successful connection
