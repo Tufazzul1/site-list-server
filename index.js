@@ -118,16 +118,43 @@ async function run() {
         });
 
 
+        // app.post('/submitedWebsite', async (req, res) => {
+        //     const newWebsite = req.body;
+        //     const result = await allSitesCollection.insertOne(newWebsite);
+        //     res.send(result);
+        // });
+
         app.post('/submitedWebsite', async (req, res) => {
             const newWebsite = req.body;
-            const result = await allSitesCollection.insertOne(newWebsite);
-            res.send(result);
+
+            try {
+                // Check if the website name or link already exists
+                const existingWebsite = await allSitesCollection.findOne({
+                    $or: [{ name: newWebsite.name }, { link: newWebsite.link }]
+                });
+
+                if (existingWebsite) {
+                    // If website already exists, send a response with a message
+                    return res.status(400).send({ message: "Website name or link already exists" });
+                }
+
+                // Insert the new website if it doesn't exist
+                const result = await allSitesCollection.insertOne(newWebsite);
+                res.status(200).send(result);
+            } catch (error) {
+                console.error("Error adding website:", error);
+                res.status(500).send({ message: "Internal server error" });
+            }
         });
 
+
+
+
+
         app.put('/updateSite/:id', async (req, res) => {
-            const id = req.params.id; 
-            const filter = { _id: new ObjectId(id) }; 
-            const updateData = req.body;  
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updateData = req.body;
 
             const updatedDocument = {
                 $set: {
@@ -142,8 +169,8 @@ async function run() {
             };
 
             try {
-                const options = { upsert: false }; 
-                const result = await allSitesCollection.updateOne(filter, updatedDocument, options); 
+                const options = { upsert: false };
+                const result = await allSitesCollection.updateOne(filter, updatedDocument, options);
 
                 if (result.modifiedCount === 1) {
                     res.status(200).send({ message: 'Website updated successfully', result });
