@@ -29,6 +29,7 @@ async function run() {
 
         const usersCollection = client.db('SiteListMyWebsite').collection('users');
         const allSitesCollection = client.db('SiteListMyWebsite').collection('AllWebsites');
+        const pendingCollection = client.db('SiteListMyWebsite').collection('Pending');
         const allSubscriberCollection = client.db('SiteListMyWebsite').collection('Subscriber');
         const favouriteCollection = client.db('SiteListMyWebsite').collection('Favourite');
 
@@ -83,6 +84,11 @@ async function run() {
             res.send(allSites);
         });
 
+        app.get('/pending-sites', async (req, res) => {
+            const personalSites = await pendingCollection.find().toArray();
+            res.send(personalSites);
+        });
+
         // get single site
         app.get('/allSites/:id', async (req, res) => {
             const siteId = req.params.id;
@@ -95,6 +101,26 @@ async function run() {
                 }
             } catch (error) {
                 res.status(500).send({ message: 'Error fetching site', error });
+            }
+        });
+
+        // Approving website from pending list 
+        app.post('/approve/:id', async (req, res) => {
+            const { id } = req.params;
+            try {
+                const site = await pendingCollection.findOne({ _id: new ObjectId(id) });
+                if (!site) {
+                    return res.status(404).json({ message: 'Site not found in pending collection' });
+                }
+
+                await allSitesCollection.insertOne(site);
+
+                await pendingCollection.deleteOne({ _id: new ObjectId(id) });
+
+                res.status(200).json({ message: 'Site approved and moved to AllWebsites collection' });
+            } catch (error) {
+                console.error('Error approving site:', error);
+                res.status(500).json({ message: 'Error approving site', error });
             }
         });
 
@@ -190,7 +216,7 @@ async function run() {
                 }
 
                 // Insert the new website if it doesn't exist
-                const result = await allSitesCollection.insertOne(newWebsite);
+                const result = await pendingCollection.insertOne(newWebsite);
                 res.status(200).send(result);
             } catch (error) {
                 console.error("Error adding website:", error);
@@ -237,6 +263,14 @@ async function run() {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const result = await allSitesCollection.deleteOne(query);
+            res.send(result);
+        });
+        
+        // delete site from pending list 
+        app.delete('/deletePendingSite/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await pendingCollection.deleteOne(query);
             res.send(result);
         });
 
