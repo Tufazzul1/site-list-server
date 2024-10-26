@@ -27,9 +27,55 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
 
+        const usersCollection = client.db('SiteListMyWebsite').collection('users');
         const allSitesCollection = client.db('SiteListMyWebsite').collection('AllWebsites');
         const allSubscriberCollection = client.db('SiteListMyWebsite').collection('Subscriber');
         const favouriteCollection = client.db('SiteListMyWebsite').collection('Favourite');
+
+
+        // user related api ---------
+        // user data 
+        app.put('/users', async (req, res) => {
+            const user = req.body;
+
+            const options = { upsert: true };
+            const query = { email: user.email };
+            const existingUser = await usersCollection.findOne(query);
+            if (existingUser) {
+                return res.send({ message: "user already exist", insertedId: null })
+            }
+            const updatedDoc = {
+                $set: {
+                    ...user
+                }
+            }
+            const result = await usersCollection.updateOne(query, updatedDoc, options);
+            res.send(result);
+        });
+
+        // get the admin 
+        app.get('/users/role/:email', async (req, res) => {
+            const email = req.params.email;
+            try {
+                const user = await usersCollection.findOne({ email: email });
+
+                if (user) {
+                    res.status(200).json({ role: user.role });
+                } else {
+                    res.status(404).json({ message: 'User not found' });
+                }
+            } catch (error) {
+                res.status(500).json({ message: 'Server error', error });
+            }
+        });
+
+        app.get("/users", async (req, res) =>{
+            const allUsers = await usersCollection.find().toArray();
+            res.send(allUsers);
+        })
+
+
+        // Website related api --------------- 
 
         // get all sites
         app.get('/allSites', async (req, res) => {
@@ -37,6 +83,7 @@ async function run() {
             res.send(allSites);
         });
 
+        // get single site
         app.get('/allSites/:id', async (req, res) => {
             const siteId = req.params.id;
             try {
@@ -50,7 +97,6 @@ async function run() {
                 res.status(500).send({ message: 'Error fetching site', error });
             }
         });
-
 
         // finding website throw email 
         app.get('/personalSites', async (req, res) => {
@@ -69,6 +115,7 @@ async function run() {
             res.send(result);
         });
 
+        // latest sites 
         app.get('/latest-sites', async (req, res) => {
             try {
                 const result = await allSitesCollection.find({}).sort({ date: -1 }).limit(4).toArray();
@@ -112,18 +159,22 @@ async function run() {
 
         app.delete('/deleteFavourite/:id', async (req, res) => {
             const id = req.params.id;
-            const query = { _id: new ObjectId(id) };
-            const result = await favouriteCollection.deleteOne(query);
-            res.send(result);
+            try {
+                const query = { _id: new ObjectId(id) };
+                const result = await favouriteCollection.deleteOne(query);
+
+                if (result.deletedCount === 1) {
+                    res.status(200).json({ message: "Successfully deleted favourite" });
+                } else {
+                    res.status(404).json({ message: "Favourite not found" });
+                }
+            } catch (error) {
+                res.status(500).json({ message: "Failed to delete favourite", error: error.message });
+            }
         });
 
 
-        // app.post('/submitedWebsite', async (req, res) => {
-        //     const newWebsite = req.body;
-        //     const result = await allSitesCollection.insertOne(newWebsite);
-        //     res.send(result);
-        // });
-
+        // post website
         app.post('/submitedWebsite', async (req, res) => {
             const newWebsite = req.body;
 
@@ -147,10 +198,7 @@ async function run() {
             }
         });
 
-
-
-
-
+        // update website
         app.put('/updateSite/:id', async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
@@ -161,7 +209,7 @@ async function run() {
                     name: updateData.name,
                     link: updateData.link,
                     category: updateData.category,
-                    subCategory: updateData.subCategory,
+                    profession: updateData.profession,
                     image: updateData.image,
                     logo: updateData.logo,
                     description: updateData.description,
@@ -184,6 +232,7 @@ async function run() {
         });
 
 
+        // Delete website 
         app.delete('/deleteSite/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
