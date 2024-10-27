@@ -75,6 +75,13 @@ async function run() {
             res.send(allUsers);
         })
 
+        app.delete('/deleteUser/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await usersCollection.deleteOne(query);
+            res.send(result);
+        });
+
 
         // Website related api --------------- 
 
@@ -273,7 +280,6 @@ async function run() {
             const result = await pendingCollection.deleteOne(query);
             res.send(result);
         });
-
 
         // Send a ping to confirm a successful connection
         // await client.db("admin").command({ ping: 1 });
