@@ -32,6 +32,7 @@ async function run() {
         const pendingCollection = client.db('SiteListMyWebsite').collection('Pending');
         const allSubscriberCollection = client.db('SiteListMyWebsite').collection('Subscriber');
         const favouriteCollection = client.db('SiteListMyWebsite').collection('Favourite');
+        const featuredCollection = client.db('SiteListMyWebsite').collection('Featured');
 
 
         // user related api ---------
@@ -189,6 +190,75 @@ async function run() {
             const favourite = await favouriteCollection.find(query).toArray();
             res.send(favourite);
         });
+
+
+        // Add to the Featured 
+        app.post('/add-featured', async (req, res) => {
+            try {
+                const { email, websiteId, name, link, logo, image, category, description } = req.body;
+
+                // Check if the website is already a favorite for this user
+                const existingFeatured = await featuredCollection.findOne({ email, websiteId });
+                if (existingFeatured) {
+                    return res.status(400).send({ message: 'This website is already in your featured.' });
+                }
+
+                // Add the new favorite
+                const featured = { email, websiteId, name, link, logo, image, category, description };
+                const result = await featuredCollection.insertOne(featured);
+
+                res.status(201).send(result); // Use 201 to indicate creation success
+            } catch (error) {
+                res.status(500).send({ message: 'Failed to add featured.', error });
+            }
+        });
+
+        // Check if a website is already featured for a user
+        app.get('/is-featured', async (req, res) => {
+            try {
+                const { email, websiteId } = req.query;
+
+                // Check if the featured item exists for the user
+                const existingFeatured = await featuredCollection.findOne({ email, websiteId });
+
+                // Send back the featured status
+                res.status(200).json({ isFeatured: !!existingFeatured });
+            } catch (error) {
+                res.status(500).send({ message: 'Failed to check featured status.', error });
+            }
+        });
+
+        // get Featured sites
+        app.get('/featured-sites', async (req, res) => {
+            try {
+                const result = await featuredCollection.find({}).limit(4).toArray();
+                res.send(result);
+            } catch (error) {
+                console.error("Error fetching featured surveys:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
+        });
+
+
+        // Remove a website from featured
+        app.delete('/remove-featured', async (req, res) => {
+            try {
+                const { email, websiteId } = req.body;
+
+                // Remove the featured website
+                const result = await featuredCollection.deleteOne({ email, websiteId });
+
+                if (result.deletedCount === 1) {
+                    res.status(200).send({ message: 'Successfully removed from featured.' });
+                } else {
+                    res.status(404).send({ message: 'Website not found in featured list.' });
+                }
+            } catch (error) {
+                res.status(500).send({ message: 'Failed to remove from featured.', error });
+            }
+        });
+
+
 
 
         // TO DO
