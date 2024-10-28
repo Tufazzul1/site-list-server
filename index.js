@@ -70,7 +70,7 @@ async function run() {
             }
         });
 
-        app.get("/users", async (req, res) =>{
+        app.get("/users", async (req, res) => {
             const allUsers = await usersCollection.find().toArray();
             res.send(allUsers);
         })
@@ -190,25 +190,53 @@ async function run() {
             res.send(favourite);
         });
 
-        app.delete('/deleteFavourite/:id', async (req, res) => {
-            const id = req.params.id;
-            try {
-                const query = { _id: new ObjectId(id) };
-                const result = await favouriteCollection.deleteOne(query);
 
-                if (result.deletedCount === 1) {
-                    res.status(200).json({ message: "Successfully deleted favourite" });
-                } else {
-                    res.status(404).json({ message: "Favourite not found" });
-                }
-            } catch (error) {
-                res.status(500).json({ message: "Failed to delete favourite", error: error.message });
-            }
-        });
+        // TO DO
+        // app.delete('/deleteFavourite/:id', async (req, res) => {
+        //     const id = req.params.id;
+        //     try {
+        //         const query = { _id: new ObjectId(id) };
+        //         const result = await favouriteCollection.deleteOne(query);
+
+        //         if (result.deletedCount === 1) {
+        //             res.status(200).json({ message: "Successfully deleted favourite" });
+        //         } else {
+        //             res.status(404).json({ message: "Favourite not found" });
+        //         }
+        //     } catch (error) {
+        //         res.status(500).json({ message: "Failed to delete favourite", error: error.message });
+        //     }
+        // });
 
 
         // post website
         app.post('/submitedWebsite', async (req, res) => {
+            const newWebsite = req.body;
+
+            try {
+                // Check if the website name or link already exists
+                const existingWebsite = await allSitesCollection.findOne({
+                    $or: [{ name: newWebsite.name }, { link: newWebsite.link }]
+                });
+                const existingWebsiteInPending = await pendingCollection.findOne({
+                    $or: [{ name: newWebsite.name }, { link: newWebsite.link }]
+                });
+
+                if (existingWebsite || existingWebsiteInPending) {
+                    // If website already exists, send a response with a message
+                    return res.status(400).send({ message: "Website name or link already exists" });
+                }
+
+                // Insert the new website if it doesn't exist
+                const result = await pendingCollection.insertOne(newWebsite);
+                res.status(200).send(result);
+            } catch (error) {
+                console.error("Error adding website:", error);
+                res.status(500).send({ message: "Internal server error" });
+            }
+        });
+
+        app.post('/adminSubmit', async (req, res) => {
             const newWebsite = req.body;
 
             try {
@@ -223,7 +251,7 @@ async function run() {
                 }
 
                 // Insert the new website if it doesn't exist
-                const result = await pendingCollection.insertOne(newWebsite);
+                const result = await allSitesCollection.insertOne(newWebsite);
                 res.status(200).send(result);
             } catch (error) {
                 console.error("Error adding website:", error);
@@ -272,7 +300,7 @@ async function run() {
             const result = await allSitesCollection.deleteOne(query);
             res.send(result);
         });
-        
+
         // delete site from pending list 
         app.delete('/deletePendingSite/:id', async (req, res) => {
             const id = req.params.id;
