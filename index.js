@@ -37,6 +37,18 @@ async function run() {
 
         // user related api ---------
         // user data 
+
+        app.get('/users/admin/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email }
+            const user = await usersCollection.findOne(query)
+            let admin = false;
+            if (user) {
+                admin = user?.role === "admin"
+            }
+            res.send({ admin })
+        });
+
         app.put('/users', async (req, res) => {
             const user = req.body;
 
@@ -231,7 +243,7 @@ async function run() {
         // get Featured sites
         app.get('/featured-sites', async (req, res) => {
             try {
-                const result = await featuredCollection.find({}).limit(4).toArray();
+                const result = await featuredCollection.find().toArray();
                 res.send(result);
             } catch (error) {
                 console.error("Error fetching featured surveys:", error);
